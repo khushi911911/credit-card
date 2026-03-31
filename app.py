@@ -2,7 +2,6 @@
 # Import Libraries
 # ================================
 import streamlit as st
-import numpy as np
 import pandas as pd
 import joblib
 
@@ -16,53 +15,68 @@ features = joblib.load("features.pkl")
 # ================================
 # Page Config
 # ================================
-st.set_page_config(page_title="Credit Card Fraud Detection", layout="centered")
+st.set_page_config(
+    page_title="Credit Card Fraud Detection",
+    page_icon="💳",
+    layout="wide",
+)
 
 st.title("💳 Credit Card Fraud Detection System")
-st.write("Enter transaction details to check if it is Fraud or Legitimate")
+st.write(
+    "Use the form below to enter transaction details, then click Predict to see whether the transaction is likely fraudulent."
+)
 
-# ================================
-# Input Section
-# ================================
-st.subheader("Enter Transaction Details")
+with st.sidebar:
+    st.header("About")
+    st.write(
+        "This app loads a pre-trained fraud detection model and scales input values before predicting."
+    )
+    st.write("- Model type: scikit-learn classifier")
+    st.write("- Output: fraud probability and label")
+    st.markdown("---")
+    st.header("Instructions")
+    st.write(
+        "Enter the transaction feature values in the form and click the Predict button."
+    )
+
+st.subheader("Transaction Details")
 
 input_data = {}
 
-# Create inputs dynamically
-for feature in features:
-    input_data[feature] = st.number_input(f"{feature}", value=0.0)
+with st.form(key="transaction_form"):
+    cols = st.columns(2)
+    for idx, feature in enumerate(features):
+        col = cols[idx % 2]
+        input_data[feature] = col.number_input(
+            label=feature,
+            value=0.0,
+            format="%.4f",
+        )
 
-# ================================
-# Convert Input
-# ================================
+    submit_button = st.form_submit_button("🔍 Predict Transaction")
+
 input_df = pd.DataFrame([input_data])
 
-# ================================
-# Prediction
-# ================================
-if st.button("🔍 Predict Transaction"):
-
+if submit_button:
     try:
-        # Ensure correct column order
         input_df = input_df[features]
-
-        # Scale input
         input_scaled = scaler.transform(input_df)
-
-        # Convert back to DataFrame (optional but safe)
         input_scaled_df = pd.DataFrame(input_scaled, columns=features)
 
-        # Predict
         prediction = model.predict(input_scaled_df)[0]
         prob = model.predict_proba(input_scaled_df)[0][1]
 
-        # Output
+        st.markdown("---")
+        st.subheader("Prediction Result")
+
         if prediction == 1:
-            st.error(f"🚨 Fraudulent Transaction Detected!")
-            st.write(f"Fraud Probability: **{prob:.4f}**")
+            st.error("🚨 Fraudulent Transaction Detected!")
         else:
-            st.success(f"✅ Legitimate Transaction")
-            st.write(f"Fraud Probability: **{prob:.4f}**")
+            st.success("✅ Legitimate Transaction")
+
+        st.metric("Fraud Probability", f"{prob:.2%}")
+        st.write("### Input Summary")
+        st.dataframe(input_df.T.rename(columns={0: 'Value'}), use_container_width=True)
 
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error during prediction: {e}")
